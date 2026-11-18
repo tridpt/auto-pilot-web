@@ -1,0 +1,10 @@
+{
+  "name": "auto-pilot-web",
+  "version": "1.0.0",
+  "description": "AutoPilot Web — Browser Workflow Automator, Smart Web Scraper & Bulk Form Filler (CDP Engine)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test_server.js"
+  }
+}

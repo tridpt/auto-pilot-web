@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoPilot Web — Điều Khiển Trình Duyệt Tự Động & Cào Dữ Liệu</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">🤖</div>
+      <div>
+        <h1>AutoPilot Web <span class="badge-pro">CDP PRO</span></h1>
+        <p class="subtitle">Điều khiển Chrome/Edge • Dò Selector 1-Click • Cào Web • Điền Form CSV/JSON • Hẹn Giờ Tự Động</p>
+      </div>
+    </div>
+
+    <div class="quick-bar">
+      <button class="btn btn-sim" onclick="runQuickDemo('wf-demo-scrape')">⚡ Chạy mẫu: Cào 8 Sản Phẩm</button>
+      <button class="btn btn-sim" onclick="runQuickDemo('wf-demo-form')">⚡ Chạy mẫu: Tự Điền Form</button>
+      <a href="/sandbox/shop" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">🛒 Mở Trang Sandbox</a>
+    </div>
+
+    <div class="status-box">
+      <span id="browser-badge" class="badge-online">🌐 Đang kiểm tra trình duyệt...</span>
+    </div>
+  </header>
+
+  <nav class="main-tabs">
+    <button class="tab-btn active" data-tab="workflow">🤖 Kịch Bản Tự Động (Workflow)</button>
+    <button class="tab-btn" data-tab="scraper">🧲 Cào Dữ Liệu 1-Click (Smart Scraper)</button>
+    <button class="tab-btn" data-tab="bulk">📝 Điền Form Hàng Loạt (CSV / JSON)</button>
+    <button class="tab-btn" data-tab="scheduler">⏰ Hẹn Giờ Tự Động (<span id="sched-count">0</span>)</button>
+    <button class="tab-btn" data-tab="history">📂 Lịch Sử &amp; Ảnh Chụp (<span id="runs-count">0</span>)</button>
+    <button class="tab-btn" data-tab="guide">📖 Hướng Dẫn Sử Dụng</button>
+  </nav>
+
+  <!-- TAB 1: WORKFLOW BUILDER & LIVE RUNNER -->
+  <main id="tab-workflow" class="tab-panel active">
+    <div class="studio-grid">
+      <!-- Left: Builder -->
+      <section class="studio-card">
+        <div class="card-header-row">
+          <h3>🛠️ Thiết Kế Chuỗi Hành Động (Workflow Steps)</h3>
+          <select id="wf-preset-select" class="input-select" style="max-width:280px;"></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tên kịch bản</label>
+            <input type="text" id="wf-name" class="input-text" placeholder="Nhập tên kịch bản..." />
+          </div>
+          <div class="form-group" style="max-width:215px;">
+            <label>Chế độ hiển thị Trình duyệt</label>
+            <select id="wf-headless" class="input-select">
+              <option value="true">👻 Chạy ngầm siêu tốc (Headless)</option>
+              <option value="false">🖥️ Hiện cửa sổ Chrome/Edge thật</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:#4ade80; font-weight:600; cursor:pointer;">
+            <input type="checkbox" id="wf-persistent-profile" />
+            🍪 Giữ nguyên Cookie &amp; Phiên đăng nhập giữa các lần chạy (Persistent Profile)
+          </label>
+          <button id="btn-sync-netpulse" type="button" class="btn btn-secondary btn-xs" title="Trích xuất Cookie &amp; Bearer Token từ trình duyệt và đẩy thẳng sang NetPulse (4080)">
+            🔗 Đồng bộ Cookie/Token sang NetPulse (4080)
+          </button>
+        </div>
+
+        <div id="sync-netpulse-box" class="info-card hidden" style="border-color:#38bdf8;"></div>
+
+        <!-- 1-Click Element & Form Inspector (No F12 needed) -->
+        <details style="background:#0c1322; border:1px solid var(--border); border-radius:8px; padding:9px 12px;">
+          <summary style="cursor:pointer; color:#38bdf8; font-weight:700; font-size:12.5px;">
+            🔍 Không biết mã CSS Selector? Bấm vào đây để Quét Ô Nhập &amp; Nút Bấm của Trang Web (Không cần mở F12)
+          </summary>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+            <div class="url-bar-row">
+              <input type="text" id="inspect-url-input" class="input-text" placeholder="Nhập URL trang web muốn dò ô nhập & nút bấm..." />
+              <button id="btn-run-inspector" class="btn btn-accent btn-sm">🔍 Quét Phần Tử</button>
+              <button id="btn-autogen-form-wf" class="btn btn-warning btn-sm hidden" title="Tự động tạo trọn bộ các bước Điền Form từ các ô vừa tìm được">✨ Tự Sinh Bước Điền Form</button>
+            </div>
+            <div id="inspector-results-box" class="hidden" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+          </div>
+        </details>
+
+        <!-- Live Browser Action Recorder -->
+        <details style="background:#0c1322; border:1px solid var(--border); border-radius:8px; padding:9px 12px;">
+          <summary style="cursor:pointer; color:#f43f5e; font-weight:700; font-size:12.5px;">
+            🎬 Tự Động Ghi Thao Tác Chuột &amp; Bàn Phím Trên Trình Duyệt (Live Action Recorder)
+          </summary>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+            <p class="subtitle">Mở cửa sổ trình duyệt thật (hoặc chạy ghi mẫu tự động): bạn click vào đâu hay gõ chữ vào ô nào, hệ thống tự bắt CSS Selector và tạo thành chuỗi bước kịch bản!</p>
+            <div class="url-bar-row">
+              <input type="text" id="recorder-url-input" class="input-text" placeholder="Nhập URL trang web muốn ghi thao tác..." />
+              <select id="recorder-duration" class="input-select" style="max-width:130px;">
+                <option value="12" selected>Ghi 12 giây</option>
+                <option value="20">Ghi 20 giây</option>
+                <option value="35">Ghi 35 giây</option>
+              </select>
+              <button id="btn-start-recorder" class="btn btn-danger btn-sm">🔴 Mở Trình Duyệt &amp; Ghi</button>
+              <button id="btn-demo-recorder" class="btn btn-warning btn-sm" title="Tự động mô phỏng thao tác gõ phím &amp; click trên trang để tạo kịch bản mẫu ngay lập tức">⚡ Ghi Mẫu Tự Động</button>
+            </div>
+          </div>
+        </details>
+
+        <div class="steps-toolbar">
+          <span class="meta-label">Thêm bước:</span>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('goto')">+ 🌐 Mở URL</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('click')">+ 🖱️ Click</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('type')">+ ⌨️ Nhập chữ</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('press_key')">+ ⏎ Nhấn phím</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('select_option')">+ 📋 Chọn Dropdown</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('wait_selector')">+ 🎯 Chờ phần tử</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('scroll')">+ 📜 Cuộn trang</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('extract_list')">+ 🧲 Cào danh sách</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('eval_js')">+ 💻 Chạy JS</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('wait')">+ ⏳ Chờ (ms)</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('export_pdf')">+ 📄 Xuất PDF</button>
+          <button class="btn btn-secondary btn-xs" onclick="addStep('screenshot')">+ 📸 Chụp màn hình</button>
+        </div>
+
+        <div id="wf-steps-list" class="steps-list"></div>
+
+        <div class="btn-row" style="margin-top:8px; flex-wrap:wrap;">
+          <button id="btn-run-workflow" class="btn btn-accent" style="flex:1; min-width:190px; justify-content:center; padding:10px;">▶️ Chạy Kịch Bản Ngay</button>
+          <button id="btn-save-workflow" class="btn btn-secondary" title="Lưu kịch bản hiện tại">💾 Lưu</button>
+          <button id="btn-delete-workflow" class="btn btn-danger btn-sm" title="Xóa kịch bản đang chọn">🗑️ Xóa</button>
+          <button id="btn-export-workflows" class="btn btn-secondary btn-sm" title="Xuất kịch bản ra file .json để sao lưu">📤 Xuất .JSON</button>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Nhập kịch bản từ file .json">
+            📥 Nhập .JSON
+            <input type="file" id="wf-import-file" accept=".json" style="display:none;" />
+          </label>
+        </div>
+      </section>
+
+      <!-- Right: Live Screen Preview, Step Logs & Extracted Data -->
+      <section class="studio-card">
+        <div class="card-header-row">
+          <h3>📺 Màn Hình Trình Duyệt Trực Tiếp &amp; Kết Quả Thu Thập</h3>
+          <div class="btn-row">
+            <button id="btn-wf-export-csv" class="btn btn-secondary btn-sm">📥 Xuất Excel (CSV)</button>
+            <button id="btn-wf-export-json" class="btn btn-secondary btn-sm">📥 Xuất JSON</button>
+          </div>
+        </div>
+
+        <div class="live-screen-box" id="live-screen-box">
+          <div id="live-screen-empty" class="empty-state small">
+            <p>Nhấn <strong>"▶️ Chạy Kịch Bản Ngay"</strong> hoặc nút <strong>"⚡ Chạy mẫu"</strong> phía trên để xem trình duyệt tự động thao tác và chụp ảnh trực tiếp tại đây.</p>
+          </div>
+          <img id="live-screen-img" class="live-screenshot hidden" alt="Live Browser Screenshot" />
+        </div>
+
+        <h4>📋 Nhật Ký Thực Thi Từng Bước (Real-time Logs)</h4>
+        <div id="wf-live-logs" class="logs-box"></div>
+
+        <h4>📊 Dữ Liệu Đã Cào Được (<span id="wf-extracted-count">0</span> dòng)</h4>
+        <div id="wf-extracted-table-wrap" class="table-scroll"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 2: 1-CLICK SMART WEB SCRAPER -->
+  <main id="tab-scraper" class="tab-panel">
+    <div class="guide-container">
+      <section class="studio-card">
+        <div class="card-header-row">
+          <div>
+            <h3>🧲 Cào Dữ Liệu Trang Web Thông Minh 1-Click + 📡 Bắt API Ngầm (Network X-Ray)</h3>
+            <p class="subtitle">Mở trang, tự động cuộn trang, hỗ trợ lật nhiều trang liên tiếp (Auto-Pagination), bắt trọn các API JSON ngầm (XHR/Fetch) và xuất trang ra PDF.</p>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-sm" onclick="fillScraperSample('sandbox')">🛒 Mẫu Tech Store (1 Trang)</button>
+            <button class="btn btn-secondary btn-sm" onclick="fillScraperSample('sandbox-multi')">📑 Mẫu Cào 2 Trang Liên Tiếp</button>
+            <button class="btn btn-secondary btn-sm" onclick="fillScraperSample('hn')">🌐 Mẫu HackerNews</button>
+          </div>
+        </div>
+
+        <div class="url-bar-row">
+          <input type="text" id="scrape-url" class="input-text" placeholder="Nhập URL trang web cần cào (VD: http://localhost:4095/sandbox/shop hoặc https://...)" />
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted); white-space:nowrap;">
+            <input type="checkbox" id="scrape-scroll" checked /> Tự động cuộn trang
+          </label>
+          <button id="btn-run-scraper" class="btn btn-accent">🧲 Bắt Đầu Cào Dữ Liệu</button>
+          <button id="btn-export-page-pdf" class="btn btn-secondary" title="Xuất trang web hiện tại thành file PDF chuẩn từ nhân Chrome">📄 Xuất Trang Thành PDF</button>
+        </div>
+
+        <details style="margin-top:6px;">
+          <summary style="cursor:pointer; color:#7dd3fc; font-size:12.5px; font-weight:600;">⚙️ Tùy chọn nâng cao: Cào Nhiều Trang Liên Tiếp (Auto-Pagination) &amp; CSS Selector Tùy Chỉnh</summary>
+          <div class="form-row" style="margin-top:8px;">
+            <div class="form-group" style="max-width:220px;">
+              <label>📑 Số trang cào liên tiếp (Pagination)</label>
+              <select id="scrape-max-pages" class="input-select">
+                <option value="1" selected>Chỉ 1 trang hiện tại</option>
+                <option value="2">Cào 2 trang liên tiếp</option>
+                <option value="3">Cào 3 trang liên tiếp</option>
+                <option value="5">Cào 5 trang liên tiếp</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>CSS Selector nút "Trang tiếp theo" (Để trống sẽ tự dò <code>.btn-next-page, a[rel="next"]</code>)</label>
+              <input type="text" id="scrape-next-selector" class="input-text" placeholder="VD: .btn-next-page hoặc a.next" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:8px;">
+            <div class="form-group">
+              <label>Bộ chọn khối lặp lại (Item Selector)</label>
+              <input type="text" id="scrape-custom-item" class="input-text" placeholder="VD: .product-card hoặc table tr" />
+            </div>
+            <div class="form-group">
+              <label>Cấu hình cột JSON (Tên cột : CSS Selector hoặc @attribute)</label>
+              <input type="text" id="scrape-custom-fields" class="input-text" placeholder='VD: {"ten": ".p-title", "gia": ".p-price", "ma": "@data-sku"}' />
+            </div>
+          </div>
+        </details>
+
+        <div id="scrape-pdf-banner" class="info-card hidden" style="margin-top:8px; border-color:#4ade80;"></div>
+      </section>
+
+      <div id="scrape-results-area" class="hidden" style="display:flex; flex-direction:column; gap:16px;">
+        <div class="cards-grid">
+          <div class="info-card">
+            <h4>🌐 Thông Tin Trang &amp; Meta SEO</h4>
+            <div id="scrape-meta-box" class="kv-list"></div>
+          </div>
+          <div class="info-card">
+            <h4>📸 Ảnh Chụp Màn Hình Trang Web</h4>
+            <img id="scrape-shot-img" class="live-screenshot" style="max-height:190px;" alt="Scraped Page" />
+          </div>
+        </div>
+
+        <section class="studio-card">
+          <div class="card-header-row">
+            <div class="sub-tabs" style="margin:0; border:none; padding:0;">
+              <button class="sub-tab-btn active" data-scrapetab="cards">🛒 Sản Phẩm / Thẻ / Bảng (<span id="cnt-cards">0</span>)</button>
+              <button class="sub-tab-btn" data-scrapetab="apis">📡 API Ngầm Bắt Được (<span id="cnt-apis">0</span>)</button>
+              <button class="sub-tab-btn" data-scrapetab="links">🔗 Đường Dẫn Links (<span id="cnt-links">0</span>)</button>
+              <button class="sub-tab-btn" data-scrapetab="images">🖼️ Hình Ảnh (<span id="cnt-images">0</span>)</button>
+              <button class="sub-tab-btn" data-scrapetab="custom">🎯 CSS Tùy Chỉnh (<span id="cnt-custom">0</span>)</button>
+            </div>
+            <div class="btn-row">
+              <button id="btn-scrape-export-csv" class="btn btn-accent btn-sm">📥 Tải Excel (CSV)</button>
+              <button id="btn-scrape-export-json" class="btn btn-secondary btn-sm">📥 Tải JSON</button>
+            </div>
+          </div>
+
+          <div id="scrape-table-container" class="table-scroll"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 3: BULK FORM FILLER (CSV / EXCEL / JSON + ANY WORKFLOW) -->
+  <main id="tab-bulk" class="tab-panel">
+    <div class="studio-grid">
+      <section class="studio-card">
+        <div class="card-header-row">
+          <h3>📝 Điền Form Hàng Loạt Từ CSV / Excel Hoặc JSON</h3>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-xs active" id="btn-bulk-mode-csv" onclick="setBulkInputMode('csv')">📋 Chế độ CSV / Excel</button>
+            <button class="btn btn-secondary btn-xs" id="btn-bulk-mode-json" onclick="setBulkInputMode('json')">📦 Chế độ JSON</button>
+            <label class="btn btn-accent btn-xs" style="cursor:pointer;">
+              📂 Tải file .CSV
+              <input type="file" id="bulk-csv-file" accept=".csv,.txt" style="display:none;" />
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Chọn Kịch Bản (Workflow) để chạy lặp qua từng dòng dữ liệu</label>
+            <select id="bulk-workflow-select" class="input-select"></select>
+          </div>
+          <div class="form-group" style="max-width:210px;">
+            <label>Chế độ hiển thị</label>
+            <select id="bulk-headless" class="input-select">
+              <option value="true">👻 Chạy ngầm (Headless)</option>
+              <option value="false">🖥️ Hiện trình duyệt thật</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="bulk-csv-group" class="form-group">
+          <label>Dữ liệu CSV / Excel (Dòng đầu tiên là tên cột để thay vào biến <code>{{ten_cot}}</code>)</label>
+          <textarea id="bulk-csv-input" class="input-textarea" rows="10">fullname,email,phone,note
+Trần Minh Khoa,khoa.tran@tech.vn,0901112233,Giao giờ hành chính - Đơn #1
+Lê Hoàng Bảo Ngọc,ngoc.le@studio.vn,0912334455,Xuất hóa đơn VAT - Đơn #2
+Phạm Quốc Anh,anh.pham@devops.io,0987654321,Giao nhanh nội thành - Đơn #3</textarea>
+        </div>
+
+        <div id="bulk-json-group" class="form-group hidden">
+          <label>Dữ liệu Mảng JSON</label>
+          <textarea id="bulk-json-input" class="input-textarea" rows="10">[
+  {
+    "fullname": "Trần Minh Khoa",
+    "email": "khoa.tran@tech.vn",
+    "phone": "0901112233",
+    "note": "Giao giờ hành chính - Đơn #1"
+  },
+  {
+    "fullname": "Lê Hoàng Bảo Ngọc",
+    "email": "ngoc.le@studio.vn",
+    "phone": "0912334455",
+    "note": "Xuất hóa đơn VAT - Đơn #2"
+  },
+  {
+    "fullname": "Phạm Quốc Anh",
+    "email": "anh.pham@devops.io",
+    "phone": "0987654321",
+    "note": "Giao nhanh nội thành - Đơn #3"
+  }
+]</textarea>
+        </div>
+
+        <button id="btn-run-bulk" class="btn btn-warning" style="justify-content:center; padding:11px;">🚀 Chạy Điền Form Hàng Loạt</button>
+      </section>
+
+      <section class="studio-card">
+        <div class="card-header-row">
+          <h3>📊 Kết Quả Điền Form Hàng Loạt</h3>
+          <button id="btn-bulk-export-csv" class="btn btn-secondary btn-sm">📥 Xuất Báo Cáo CSV</button>
+        </div>
+        <div id="bulk-results-logs" class="logs-box"></div>
+        <h4>Danh sách Mã Đơn / Phản Hồi Thu Được</h4>
+        <div id="bulk-extracted-table" class="table-scroll"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 4: AUTO-SCHEDULER & WEBSITE CHANGE MONITOR -->
+  <main id="tab-scheduler" class="tab-panel">
+    <div class="studio-grid">
+      <section class="studio-card">
+        <h3>⏰ Đặt Lịch Hẹn Giờ &amp; 🔔 Theo Dõi Biến Động Trang Web (Change Monitor)</h3>
+        <p class="subtitle">Tự động kích hoạt kịch bản cào dữ liệu, đối chiếu mã băm dữ liệu (SHA-256 Snapshot) để phát hiện thay đổi giá/nội dung và bắn cảnh báo về Telegram / Discord / NetPulse.</p>
+
+        <div class="form-group">
+          <label>Chọn Kịch Bản muốn hẹn giờ &amp; theo dõi biến động</label>
+          <select id="sched-workflow-select" class="input-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Chu kỳ lặp lại (Số phút / 1 lần chạy)</label>
+          <select id="sched-interval-select" class="input-select">
+            <option value="1">Mỗi 1 phút (Test nhanh)</option>
+            <option value="5" selected>Mỗi 5 phút</option>
+            <option value="15">Mỗi 15 phút</option>
+            <option value="30">Mỗi 30 phút</option>
+            <option value="60">Mỗi 60 phút (1 giờ)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="label-row" style="display:flex; justify-content:space-between; align-items:center;">
+            <label>🔔 Webhook Nhận Cảnh Báo (Telegram Bot / Discord / NetPulse URL)</label>
+            <button type="button" class="btn btn-secondary btn-xs" onclick="document.getElementById('sched-notify-url').value='http://localhost:4080/hook/payment-webhook'">🔗 Điền NetPulse (4080)</button>
+          </div>
+          <input type="text" id="sched-notify-url" class="input-text" placeholder="VD: http://localhost:4080/hook/payment-webhook hoặc https://discord.com/api/webhooks/..." />
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#fbbf24; margin-top:4px; cursor:pointer;">
+            <input type="checkbox" id="sched-notify-change-only" />
+            🚨 Chỉ gửi thông báo khi phát hiện dữ liệu trang web THAY ĐỔI so với lần chạy trước
+          </label>
+        </div>
+
+        <button id="btn-add-schedule" class="btn btn-accent" style="justify-content:center; padding:10px;">➕ Bật Lịch Hẹn &amp; Theo Dõi Biến Động</button>
+      </section>
+
+      <section class="studio-card">
+        <h3>📋 Danh Sách Lịch Hẹn &amp; Trạng Thái Biến Động Dữ Liệu</h3>
+        <div id="schedules-list" class="history-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 5: RUNS HISTORY & SCREENSHOTS -->
+  <main id="tab-history" class="tab-panel">
+    <div class="guide-container">
+      <section class="studio-card">
+        <div class="card-header-row">
+          <h3>📂 Lịch Sử Các Phiên Chạy &amp; Kho Ảnh Chụp Màn Hình</h3>
+          <button id="btn-clear-history" class="btn btn-danger btn-sm">🗑️ Xóa lịch sử</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 6: USER GUIDE -->
+  <main id="tab-guide" class="tab-panel">
+    <div class="guide-container">
+      <div class="guide-hero">
+        <div>
+          <h2>📖 Hướng Dẫn Sử Dụng AutoPilot Web Toàn Tập (6 Tính Năng)</h2>
+          <p>Tự động hóa trình duyệt Chrome/Edge không cần viết code: Dò Selector 1-Click không cần F12, Giữ Cookie đăng nhập, Cào dữ liệu 1-Click, Điền Form từ CSV/Excel và Hẹn giờ tự động.</p>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-accent" onclick="runQuickDemo('wf-demo-scrape')">⚡ Chạy thử Cào Sản Phẩm ngay</button>
+          <a href="/sandbox/shop" target="_blank" class="btn btn-secondary" style="text-decoration:none;">🛒 Xem Trang Sandbox</a>
+        </div>
+      </div>
+
+      <div class="cards-grid">
+        <div class="info-card">
+          <h4>1. 🔍 Dò Phần Tử 1-Click &amp; 🎬 Tự Ghi Thao Tác Trực Tiếp (`Live Action Recorder`)</h4>
+          <ul class="guide-list">
+            <li><strong>🔍 Quét Phần Tử (Không cần F12):</strong> Tự mở trang web và liệt kê mọi ô <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>, <code>&lt;button&gt;</code> kèm nút <strong>"✨ Tự Sinh Bước Điền Form"</strong>.</li>
+            <li><strong>🎬 Tự Động Ghi Thao Tác (Live Recorder):</strong> Bấm <strong>"🔴 Mở Trình Duyệt &amp; Ghi"</strong> (hoặc <strong>"⚡ Ghi Mẫu Tự Động"</strong>) — bạn click hay gõ chữ trên trình duyệt thật, hệ thống tự bắt CSS Selector và điền thẳng vào kịch bản!</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h4>2. 🍪 Giữ Nguyên Cookie (`Persistent Profile`) &amp; 🔗 Đồng Bộ Sang NetPulse (`4080`)</h4>
+          <ul class="guide-list">
+            <li>Tích chọn <strong>"🍪 Giữ nguyên Cookie &amp; Phiên đăng nhập"</strong> trong tab Kịch Bản Tự Động để lưu phiên đăng nhập tại <code>data/browser-profile</code>.</li>
+            <li>Bấm nút <strong>"🔗 Đồng bộ Cookie/Token sang NetPulse (4080)"</strong> để trích xuất toàn bộ Cookie và JWT Token trong <code>localStorage</code> đẩy thẳng sang biến môi trường của <strong>NetPulse Replay Studio</strong>!</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h4>3. 🧲 Cào Dữ Liệu 1-Click &amp; Xuất Excel/CSV (`Smart Scraper`)</h4>
+          <ul class="guide-list">
+            <li>Mở tab <strong>"🧲 Cào Dữ Liệu 1-Click"</strong>, bấm <strong>"🛒 Mẫu Tech Store Sandbox"</strong> hoặc dán link bất kỳ.</li>
+            <li>Hệ thống tự cuộn trang tải dữ liệu động, chụp ảnh màn hình và trích xuất Sản phẩm/Bảng biểu, Links, Hình ảnh hoặc theo CSS Selector tùy chỉnh, hỗ trợ tải về <strong>Excel (CSV chuẩn tiếng Việt UTF-8)</strong> hoặc <strong>JSON</strong>.</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h4>4. 📝 Điền Form Hàng Loạt &amp; 🔔 Hẹn Giờ Theo Dõi Biến Động (`Change Monitor`)</h4>
+          <ul class="guide-list">
+            <li><strong>Điền Form Hàng Loạt:</strong> Hỗ trợ dán bảng CSV, tải file <code>.csv</code> từ máy tính, và lặp qua toàn bộ danh sách!</li>
+            <li><strong>⏰ Hẹn Giờ &amp; 🔔 Theo Dõi Biến Động:</strong> Tự động đối chiếu mã băm dữ liệu (SHA-256 Snapshot) giữa các lần chạy — nếu phát hiện giá hoặc nội dung trang web thay đổi sẽ tự động bắn cảnh báo về <strong>Telegram / Discord / NetPulse</strong>!</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast-container" class="toast-container"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
